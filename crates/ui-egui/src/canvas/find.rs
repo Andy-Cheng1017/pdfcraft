@@ -243,11 +243,14 @@ impl DocView {
             return None;
         }
         let &(w, h) = self.page_sizes.get(*p).filter(|(w, h)| w.is_finite() && h.is_finite() && *w > 0.0 && *h > 0.0)?;
-        let (x0, x1, y0, y1) = (x0 / w, x1 / w, y0 / h, y1 / h);
-        if [x0, x1, y0, y1].iter().any(|v| !v.is_finite() || v.abs() > MAX_MATCH_COORDINATE_PAGES) {
+        let page_fractions = [x0 / w, x1 / w, y0 / h, y1 / h];
+        if page_fractions.iter().any(|v| !v.is_finite() || v.abs() > MAX_MATCH_COORDINATE_PAGES) {
             return None;
         }
-        let (u, v) = (x0 * 0.5 + x1 * 0.5, y0 * 0.5 + y1 * 0.5);
+        let (u, v) = ((x0 * 0.5 + x1 * 0.5) / w, (y0 * 0.5 + y1 * 0.5) / h);
+        if !u.is_finite() || !v.is_finite() {
+            return None;
+        }
         let (u, v) = (u.clamp(0.0, 1.0), v.clamp(0.0, 1.0));
         // Turned clockwise by the view rotation, as `PageInfo::dest_fraction` does.
         Some(match self.rotation % 360 {
