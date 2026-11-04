@@ -336,7 +336,12 @@ fn previous_view_after_a_find_step_lets_go_of_the_match() {
 
 #[test]
 fn a_match_with_unbounded_glyphs_falls_back_to_its_page() {
-    for rect in [[f32::NEG_INFINITY, 260.0, f32::INFINITY, 280.0], [20.0, 260.0, f32::INFINITY, 280.0], [f32::MAX, 260.0, f32::MAX, 280.0]] {
+    for rect in [
+        [f32::NEG_INFINITY, 260.0, f32::INFINITY, 280.0],
+        [20.0, 260.0, f32::INFINITY, 280.0],
+        [f32::MAX, 260.0, f32::MAX, 280.0],
+        [-f32::MAX, 260.0, f32::MAX, 280.0],
+    ] {
         let mut v = history_search_view();
         // A hostile page can give a glyph non-finite or extreme coordinates.
         if let Some(text) = v.texts.get_mut(&3).and_then(Arc::get_mut) {
