@@ -81,8 +81,22 @@ const FIND_PHRASE_MAX: usize = 200;
 /// one-line find field shows what the page reads as. `None` for nothing but white space, and for
 /// a selection too long to be a search (a Select All).
 pub(super) fn find_phrase(selected: &str) -> Option<String> {
-    let phrase = selected.split_whitespace().collect::<Vec<_>>().join(" ");
-    (!phrase.is_empty() && phrase.chars().count() <= FIND_PHRASE_MAX).then_some(phrase)
+    let mut phrase = String::new();
+    let mut phrase_chars = 0usize;
+    for word in selected.split_whitespace() {
+        let separator = if phrase.is_empty() { 0 } else { 1 };
+        let remaining = FIND_PHRASE_MAX.saturating_sub(phrase_chars.saturating_add(separator));
+        let word_chars = word.chars().take(remaining.saturating_add(1)).count();
+        if word_chars > remaining {
+            return None;
+        }
+        if separator != 0 {
+            phrase.push(' ');
+        }
+        phrase.push_str(word);
+        phrase_chars = phrase_chars.saturating_add(separator).saturating_add(word_chars);
+    }
+    (!phrase.is_empty()).then_some(phrase)
 }
 
 impl DocView {
@@ -222,8 +236,15 @@ impl DocView {
         let (p, r) = f.matches.get(f.current?)?;
         let glyphs = self.texts.get(p)?.glyphs.get(r.clone())?;
         let [x0, y0, x1, y1] = glyphs.iter().map(|g| g.rect).reduce(|a, b| [a[0].min(b[0]), a[1].min(b[1]), a[2].max(b[2]), a[3].max(b[3])])?;
-        let &(w, h) = self.page_sizes.get(*p).filter(|(w, h)| *w > 0.0 && *h > 0.0)?;
-        let (u, v) = ((((x0 + x1) / 2.0) / w).clamp(0.0, 1.0), (((y0 + y1) / 2.0) / h).clamp(0.0, 1.0));
+        if ![x0, y0, x1, y1].iter().all(|v| v.is_finite()) {
+            return None;
+        }
+        let &(w, h) = self.page_sizes.get(*p).filter(|(w, h)| w.is_finite() && h.is_finite() && *w > 0.0 && *h > 0.0)?;
+        let (u, v) = ((x0 * 0.5 + x1 * 0.5) / w, (y0 * 0.5 + y1 * 0.5) / h);
+        if !u.is_finite() || !v.is_finite() {
+            return None;
+        }
+        let (u, v) = (u.clamp(0.0, 1.0), v.clamp(0.0, 1.0));
         // Turned clockwise by the view rotation, as `PageInfo::dest_fraction` does.
         Some(match self.rotation % 360 {
             90 => [1.0 - v, u],

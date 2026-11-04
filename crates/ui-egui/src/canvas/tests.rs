@@ -336,17 +336,19 @@ fn previous_view_after_a_find_step_lets_go_of_the_match() {
 
 #[test]
 fn a_match_with_unbounded_glyphs_falls_back_to_its_page() {
-    let mut v = history_search_view();
-    // A hostile page: a glyph from -inf to inf, whose centre is NaN.
-    if let Some(text) = v.texts.get_mut(&3).and_then(Arc::get_mut) {
-        text.glyphs[0].rect = [f32::NEG_INFINITY, 260.0, f32::INFINITY, 280.0];
+    for rect in [[f32::NEG_INFINITY, 260.0, f32::INFINITY, 280.0], [20.0, 260.0, f32::INFINITY, 280.0], [f32::MAX, 260.0, f32::MAX, 280.0]] {
+        let mut v = history_search_view();
+        // A hostile page can give a glyph non-finite or extreme coordinates.
+        if let Some(text) = v.texts.get_mut(&3).and_then(Arc::get_mut) {
+            text.glyphs[0].rect = rect;
+        }
+        v.zoom_at(2.0, pos2(150.0, 50.0));
+        v.find_step(true);
+        assert!(v.goto_point.is_none(), "no invalid scroll target for {rect:?}");
+        assert_eq!(v.goto.map(|g| g.0), Some(3), "the match's page instead");
+        v.zoom_at(3.0, pos2(150.0, 50.0));
+        assert!(v.zoom_anchor.is_none_or(|a| a.1.is_finite() && a.2.is_finite()), "no invalid zoom anchor for {rect:?}");
     }
-    v.zoom_at(2.0, pos2(150.0, 50.0));
-    v.find_step(true);
-    assert!(v.goto_point.is_none(), "no NaN scroll target");
-    assert_eq!(v.goto.map(|g| g.0), Some(3), "the match's page instead");
-    v.zoom_at(3.0, pos2(150.0, 50.0));
-    assert!(v.zoom_anchor.is_none_or(|a| a.1.is_finite() && a.2.is_finite()), "no NaN zoom anchor");
 }
 
 #[test]
